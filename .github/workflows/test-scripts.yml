@@ -1,0 +1,24 @@
+name: Test scripts
+
+on:
+  push:
+    paths: ["scripts/**"]
+  pull_request:
+    paths: ["scripts/**"]
+
+jobs:
+  bats:
+    name: BATS
+    runs-on:
+      - runs-on
+      - runner=tn
+      - env=production-eu
+      - run-id=${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install bats-core
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Run tests
+        run: bats scripts/check-codeowners.bats

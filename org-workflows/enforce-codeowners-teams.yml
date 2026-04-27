@@ -1,0 +1,27 @@
+# This workflow is configured as a Required Workflow at the organization level
+# (Org Settings → Actions → Required workflows) so that it runs on every pull
+# request across all repositories. Do not remove the pull_request trigger or
+# narrow its scope — doing so would break org-wide enforcement.
+name: Enforce team-only CODEOWNERS
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check-codeowners:
+    name: CODEOWNERS — teams only
+    runs-on:
+      - runs-on
+      - runner=tn
+      - env=production-eu
+      - run-id=${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/.github
+          path: .github-shared
+
+      - run: bash .github-shared/scripts/check-codeowners.sh
