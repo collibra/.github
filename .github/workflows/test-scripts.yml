@@ -10,10 +10,10 @@ jobs:
   bats:
     name: BATS
     runs-on:
-      - runs-on
+      - runs-on=${{ github.run_id }}
       - runner=tn
       - env=production-eu
-      - run-id=${{ github.run_id }}
+      - tag=bats
     steps:
       - uses: actions/checkout@v6
 
