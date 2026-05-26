@@ -1,0 +1,10 @@
+# Individual @mentions that are exempt from the "teams only" CODEOWNERS policy
+# enforced by scripts/check-codeowners.sh.
+#
+# Add only bot/service accounts — never humans. Humans must own code via team
+# membership so that ownership survives org changes and PTO.
+#
+# One @username per line. Blank lines and # comments are ignored.
+# Entries are matched exactly against tokens extracted from CODEOWNERS.
+
+@collibra-cicd-auto-merge

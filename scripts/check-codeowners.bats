@@ -64,6 +64,78 @@ teardown() {
 }
 
 # ---------------------------------------------------------------------------
+# load_allowlist
+# ---------------------------------------------------------------------------
+
+@test "load_allowlist: empty output for empty file" {
+    touch "$FIXTURE_DIR/allowlist.txt"
+    run load_allowlist "$FIXTURE_DIR/allowlist.txt"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "load_allowlist: empty output for missing file" {
+    run load_allowlist "$FIXTURE_DIR/does-not-exist.txt"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "load_allowlist: ignores comments and blank lines" {
+    printf "# a comment\n\n# another\n   \n" > "$FIXTURE_DIR/allowlist.txt"
+    run load_allowlist "$FIXTURE_DIR/allowlist.txt"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "load_allowlist: returns entries from a mixed file" {
+    printf "# header\n@bot-one\n\n@bot-two\n# trailing\n" > "$FIXTURE_DIR/allowlist.txt"
+    run load_allowlist "$FIXTURE_DIR/allowlist.txt"
+    [ "$status" -eq 0 ]
+    [ "$output" = "@bot-one"$'\n'"@bot-two" ]
+}
+
+@test "load_allowlist: trims surrounding whitespace" {
+    printf "  @spaced-bot  \n\t@tabbed-bot\t\n" > "$FIXTURE_DIR/allowlist.txt"
+    run load_allowlist "$FIXTURE_DIR/allowlist.txt"
+    [ "$status" -eq 0 ]
+    [ "$output" = "@spaced-bot"$'\n'"@tabbed-bot" ]
+}
+
+# ---------------------------------------------------------------------------
+# filter_against_allowlist
+# ---------------------------------------------------------------------------
+
+@test "filter_against_allowlist: empty allowlist preserves all input" {
+    run bash -c 'source "'"$BATS_TEST_DIRNAME"'/check-codeowners.sh"; printf "@alice\n@bob\n" | filter_against_allowlist ""'
+    [ "$status" -eq 0 ]
+    [ "$output" = "@alice"$'\n'"@bob" ]
+}
+
+@test "filter_against_allowlist: removes matching entries" {
+    run bash -c 'source "'"$BATS_TEST_DIRNAME"'/check-codeowners.sh"; printf "@alice\n@bot\n@bob\n" | filter_against_allowlist "@bot"'
+    [ "$status" -eq 0 ]
+    [ "$output" = "@alice"$'\n'"@bob" ]
+}
+
+@test "filter_against_allowlist: removes multiple matches" {
+    run bash -c 'source "'"$BATS_TEST_DIRNAME"'/check-codeowners.sh"; printf "@alice\n@bot-one\n@bob\n@bot-two\n" | filter_against_allowlist "@bot-one"$'"'"'\n'"'"'"@bot-two"'
+    [ "$status" -eq 0 ]
+    [ "$output" = "@alice"$'\n'"@bob" ]
+}
+
+@test "filter_against_allowlist: empty output when all entries are allowlisted" {
+    run bash -c 'source "'"$BATS_TEST_DIRNAME"'/check-codeowners.sh"; printf "@bot\n" | filter_against_allowlist "@bot"'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "filter_against_allowlist: empty input passes through cleanly" {
+    run bash -c 'source "'"$BATS_TEST_DIRNAME"'/check-codeowners.sh"; printf "" | filter_against_allowlist "@bot"'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# ---------------------------------------------------------------------------
 # find_codeowners
 # ---------------------------------------------------------------------------
 
@@ -121,4 +193,29 @@ teardown() {
 @test "main: passes when no CODEOWNERS file exists" {
     run main "$FIXTURE_DIR"
     [ "$status" -eq 0 ]
+}
+
+@test "main: passes when only allowlisted individual is present" {
+    printf "@allowed-bot\n" > "$FIXTURE_DIR/allowlist.txt"
+    printf "* @org/team @allowed-bot\n" > "$FIXTURE_DIR/CODEOWNERS"
+    CODEOWNERS_ALLOWLIST_FILE="$FIXTURE_DIR/allowlist.txt" run main "$FIXTURE_DIR"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Allowed via allowlist: @allowed-bot"* ]]
+}
+
+@test "main: fails on disallowed individual but reports allowlisted exemption" {
+    printf "@allowed-bot\n" > "$FIXTURE_DIR/allowlist.txt"
+    printf "* @org/team @allowed-bot @human\n" > "$FIXTURE_DIR/CODEOWNERS"
+    CODEOWNERS_ALLOWLIST_FILE="$FIXTURE_DIR/allowlist.txt" run main "$FIXTURE_DIR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Allowed via allowlist: @allowed-bot"* ]]
+    [[ "$output" == *"@human"* ]]
+    [[ "$output" != *"Offending entries:"*"@allowed-bot"* ]]
+}
+
+@test "main: fails for non-allowlisted individual when allowlist file is missing" {
+    printf "* @human\n" > "$FIXTURE_DIR/CODEOWNERS"
+    CODEOWNERS_ALLOWLIST_FILE="$FIXTURE_DIR/does-not-exist.txt" run main "$FIXTURE_DIR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"@human"* ]]
 }
