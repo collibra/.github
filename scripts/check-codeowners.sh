@@ -25,6 +25,31 @@ extract_individuals() {
         || true
 }
 
+# Load allowlist entries from FILE. Strips full-line comments (# prefix after
+# trimming), blank lines, and surrounding whitespace. Missing file → empty
+# output (no error) so removing the allowlist falls back to strict enforcement.
+load_allowlist() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+    awk '
+        { gsub(/^[[:space:]]+|[[:space:]]+$/, "") }
+        /^$/ { next }
+        /^#/ { next }
+        { print }
+    ' "$file"
+}
+
+# Filter stdin against ALLOWLIST (newline-separated). Drops exact matches,
+# prints survivors. Empty allowlist → passthrough.
+filter_against_allowlist() {
+    local allowlist="$1"
+    if [[ -z "$allowlist" ]]; then
+        cat
+        return 0
+    fi
+    grep -Fxv -f <(printf '%s\n' "$allowlist") || true
+}
+
 main() {
     local root="${1:-.}"
     local codeowners_file
@@ -36,18 +61,36 @@ main() {
 
     echo "Checking $codeowners_file ..."
 
-    local individuals
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local allowlist_file="${CODEOWNERS_ALLOWLIST_FILE:-${script_dir}/codeowners-allowlist.txt}"
+    local allowlist
+    allowlist=$(load_allowlist "$allowlist_file")
+
+    local individuals disallowed allowed_matches
     individuals=$(extract_individuals "$codeowners_file")
 
-    if [[ -n "$individuals" ]]; then
+    if [[ -z "$individuals" ]]; then
+        echo "All CODEOWNERS entries are team references."
+        return 0
+    fi
+
+    disallowed=$(printf '%s\n' "$individuals" | filter_against_allowlist "$allowlist")
+    allowed_matches=$(printf '%s\n' "$individuals" | { [[ -n "$allowlist" ]] && grep -Fxf <(printf '%s\n' "$allowlist") || true; })
+
+    if [[ -n "$allowed_matches" ]]; then
+        echo "Allowed via allowlist: $(echo "$allowed_matches" | paste -sd, -)"
+    fi
+
+    if [[ -n "$disallowed" ]]; then
         echo "::error file=$codeowners_file::Individual users are not permitted in CODEOWNERS — use @org/team references instead."
         echo ""
         echo "Offending entries:"
-        echo "$individuals"
+        echo "$disallowed"
         exit 1
     fi
 
-    echo "All CODEOWNERS entries are team references."
+    echo "All CODEOWNERS entries are team references or allowlisted."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
