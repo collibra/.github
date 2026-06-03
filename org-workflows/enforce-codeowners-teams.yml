@@ -11,6 +11,10 @@ on:
 jobs:
   check-codeowners:
     name: CODEOWNERS — teams only
+    # Skip forks: their CODEOWNERS is inherited from upstream and not ours to
+    # govern, so enforcing teams-only there would fail every PR for no benefit.
+    # A skipped job still satisfies the required-workflow check.
+    if: ${{ !github.event.repository.fork }}
     runs-on:
       - runs-on=${{ github.run_id }}
       - runner=tn
