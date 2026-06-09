@@ -12,9 +12,9 @@ Workflows applied across the entire organization via **Required Workflows**
 (Org Settings → Actions → Required workflows). Each workflow must be registered
 there by an org admin, pointing at `collibra/.github/<path>@main`.
 
-| File                                         | Purpose                                                           |
-|----------------------------------------------|-------------------------------------------------------------------|
-| `org-workflows/enforce-codeowners-teams.yml` | Rejects CODEOWNERS entries that name individuals instead of teams |
+| File                                              | Purpose                                                           |
+|---------------------------------------------------|-------------------------------------------------------------------|
+| `.githuub/workflows/enforce-codeowners-teams.yml` | Rejects CODEOWNERS entries that name individuals instead of teams |
 
 ## .github/workflows/
 
