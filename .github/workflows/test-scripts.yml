@@ -12,7 +12,8 @@ jobs:
     runs-on:
       - runs-on=${{ github.run_id }}
       - runner=tn
-      - env=production-eu
+      - env=production-eu-v3
+      - volume=40gb
       - tag=bats
     steps:
       - uses: actions/checkout@v6
